@@ -73,6 +73,8 @@
 # include "adfiles/ad_x86_32.hpp"
 #elif defined TARGET_ARCH_MODEL_x86_64
 # include "adfiles/ad_x86_64.hpp"
+#elif defined TARGET_ARCH_MODEL_aarch64
+# include "adfiles/ad_aarch64.hpp"
 #elif defined TARGET_ARCH_MODEL_sparc
 # include "adfiles/ad_sparc.hpp"
 #elif defined TARGET_ARCH_MODEL_zero
@@ -2084,13 +2086,16 @@ void Compile::inline_incrementally(PhaseIterGVN& igvn) {
 // They were inserted during parsing (see add_safepoint()) to make
 // infinite loops without calls or exceptions visible to root, i.e.,
 // useful.
-void Compile::remove_root_to_sfpts_edges() {
+void Compile::remove_root_to_sfpts_edges(PhaseIterGVN& igvn) {
   Node *r = root();
   if (r != NULL) {
     for (uint i = r->req(); i < r->len(); ++i) {
       Node *n = r->in(i);
       if (n != NULL && n->is_SafePoint()) {
         r->rm_prec(i);
+        if (n->outcnt() == 0) {
+          igvn.remove_dead_node(n);
+        }
         --i;
       }
     }
@@ -2154,7 +2159,7 @@ void Compile::Optimize() {
 
   // Now that all inlining is over, cut edge from root to loop
   // safepoints
-  remove_root_to_sfpts_edges();
+  remove_root_to_sfpts_edges(igvn);
 
   // Remove the speculative part of types and clean up the graph from
   // the extra CastPP nodes whose only purpose is to carry them. Do
@@ -2674,6 +2679,17 @@ void Compile::final_graph_reshaping_impl( Node *n, Final_Reshape_Counts &frc) {
             n->is_Load() && (n->as_Load()->bottom_type()->isa_oopptr() ||
                              LoadNode::is_immutable_value(n->in(MemNode::Address))),
             "raw memory operations should have control edge");
+  }
+  if (n->is_MemBar()) {
+    MemBarNode* mb = n->as_MemBar();
+    if (mb->trailing_store() || mb->trailing_load_store()) {
+      assert(mb->leading_membar()->trailing_membar() == mb, "bad membar pair");
+      Node* mem = mb->in(MemBarNode::Precedent);
+      assert((mb->trailing_store() && mem->is_Store() && mem->as_Store()->is_release()) ||
+             (mb->trailing_load_store() && mem->is_LoadStore()), "missing mem op");
+    } else if (mb->leading()) {
+      assert(mb->trailing_membar()->leading_membar() == mb, "bad membar pair");
+    }
   }
 #endif
   // Count FPU ops and common calls, implements item (3)
