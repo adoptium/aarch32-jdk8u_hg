@@ -302,8 +302,15 @@ final class SSLSocketInputRecord extends InputRecord implements SSLRecord {
                 }
 
                 handshakeFrag.mark();
-                // skip the first byte: handshake type
+
+                // Fail fast for unknown handshake message.
                 byte handshakeType = handshakeFrag.get();
+                if (!SSLHandshake.isKnown(handshakeType)) {
+                    throw new SSLProtocolException(
+                        "Unknown handshake type size, Handshake.msg_type = " +
+                        (handshakeType & 0xFF));
+                }
+
                 int handshakeBodyLen = Record.getInt24(handshakeFrag);
                 if (handshakeBodyLen > SSLConfiguration.maxHandshakeMessageSize) {
                     throw new SSLProtocolException(
@@ -471,5 +478,18 @@ final class SSLSocketInputRecord extends InputRecord implements SSLRecord {
         }
 
         return n;
+    }
+
+    // Try to use up the input stream without impact the performance too much.
+    void deplete(boolean tryToRead) throws IOException {
+        int remaining = is.available();
+        if (tryToRead && (remaining == 0)) {
+            // try to wait and read one byte if no buffered input
+            is.read();
+        }
+
+        while ((remaining = is.available()) != 0) {
+            is.skip(remaining);
+        }
     }
 }
