@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2016, Red Hat, Inc. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -21,25 +21,35 @@
  * questions.
  */
 
-import sun.misc.Unsafe;
-import java.lang.reflect.Field;
+/**
+ * @test
+ * @bug 8155612
+ * @summary Aarch64: vector nodes need to support misaligned offset
+ * @run main/othervm -XX:-BackgroundCompilation TestVectorUnalignedOffset
+ *
+ */
 
-@SuppressWarnings("sunapi")
-public class Test8001071 {
-    public static Unsafe unsafe;
 
-    static {
-        try {
-            Field f = Unsafe.class.getDeclaredField("theUnsafe");
-            f.setAccessible(true);
-            unsafe = (Unsafe) f.get(null);
-        } catch ( Exception e ) {
-            e.printStackTrace();
+public class TestVectorUnalignedOffset {
+
+    static void test1(int[] src_array, int[] dst_array, int l) {
+        for (int i = 0; i < l; i++) {
+            dst_array[i + 250] = src_array[i + 250];
         }
     }
 
-    public static void main(String args[]) {
-        unsafe.getObject(new Test8001071(), Short.MAX_VALUE);
+    static void test2(byte[] src_array, byte[] dst_array, int l) {
+        for (int i = 0; i < l; i++) {
+            dst_array[i + 250] = src_array[i + 250];
+        }
     }
 
+    static public void main(String[] args) {
+        int[] int_array = new int[1000];
+        byte[] byte_array = new byte[1000];
+        for (int i = 0; i < 20000; i++) {
+            test1(int_array, int_array, int_array.length - 250);
+            test2(byte_array, byte_array, byte_array.length - 250);
+        }
+    }
 }

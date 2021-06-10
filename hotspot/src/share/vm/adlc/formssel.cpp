@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,6 +23,7 @@
  */
 
 // FORMS.CPP - Definitions for ADL Parser Forms Classes
+#include "utilities/macros.hpp"
 #include "adlc.hpp"
 
 //==============================Instructions===================================
@@ -1242,7 +1243,8 @@ bool InstructForm::check_branch_variant(ArchDesc &AD, InstructForm *short_branch
       !is_short_branch() &&     // Don't match another short branch variant
       reduce_result() != NULL &&
       strcmp(reduce_result(), short_branch->reduce_result()) == 0 &&
-      _matrule->equivalent(AD.globalNames(), short_branch->_matrule)) {
+      _matrule->equivalent(AD.globalNames(), short_branch->_matrule)
+      AARCH64_ONLY(&& equivalent_predicates(this, short_branch))) {
     // The instructions are equivalent.
 
     // Now verify that both instructions have the same parameters and
@@ -3394,7 +3396,7 @@ const char *MatchNode::reduce_left(FormDict &globals) const {
 // Count occurrences of operands names in the leaves of the instruction
 // match rule.
 void MatchNode::count_instr_names( Dict &names ) {
-  if( !this ) return;
+  if( this == NULL ) return;
   if( _lChild ) _lChild->count_instr_names(names);
   if( _rChild ) _rChild->count_instr_names(names);
   if( !_lChild && !_rChild ) {
@@ -3967,39 +3969,12 @@ bool MatchRule::is_chain_rule(FormDict &globals) const {
 }
 
 int MatchRule::is_ideal_copy() const {
-  if( _rChild ) {
-    const char  *opType = _rChild->_opType;
-#if 1
-    if( strcmp(opType,"CastIP")==0 )
-      return 1;
-#else
-    if( strcmp(opType,"CastII")==0 )
-      return 1;
-    // Do not treat *CastPP this way, because it
-    // may transfer a raw pointer to an oop.
-    // If the register allocator were to coalesce this
-    // into a single LRG, the GC maps would be incorrect.
-    //if( strcmp(opType,"CastPP")==0 )
-    //  return 1;
-    //if( strcmp(opType,"CheckCastPP")==0 )
-    //  return 1;
-    //
-    // Do not treat CastX2P or CastP2X this way, because
-    // raw pointers and int types are treated differently
-    // when saving local & stack info for safepoints in
-    // Output().
-    //if( strcmp(opType,"CastX2P")==0 )
-    //  return 1;
-    //if( strcmp(opType,"CastP2X")==0 )
-    //  return 1;
-#endif
-  }
-  if( is_chain_rule(_AD.globalNames()) &&
-      _lChild && strncmp(_lChild->_opType,"stackSlot",9)==0 )
+  if (is_chain_rule(_AD.globalNames()) &&
+      _lChild && strncmp(_lChild->_opType, "stackSlot", 9) == 0) {
     return 1;
+  }
   return 0;
 }
-
 
 int MatchRule::is_expensive() const {
   if( _rChild ) {

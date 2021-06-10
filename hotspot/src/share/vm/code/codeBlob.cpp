@@ -42,6 +42,9 @@
 #ifdef TARGET_ARCH_x86
 # include "nativeInst_x86.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch64
+# include "nativeInst_aarch64.hpp"
+#endif
 #ifdef TARGET_ARCH_sparc
 # include "nativeInst_sparc.hpp"
 #endif
@@ -198,6 +201,11 @@ OopMap* CodeBlob::oop_map_for_return_address(address return_address) {
   return oop_maps()->find_map_at_offset((intptr_t) return_address - (intptr_t) code_begin());
 }
 
+void CodeBlob::print_code() {
+  HandleMark hm;
+  ResourceMark m;
+  Disassembler::decode(this, tty);
+}
 
 //----------------------------------------------------------------------------------------------------
 // Implementation of BufferBlob

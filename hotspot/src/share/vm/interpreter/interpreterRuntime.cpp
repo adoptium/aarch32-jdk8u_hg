@@ -59,6 +59,9 @@
 #ifdef TARGET_ARCH_x86
 # include "vm_version_x86.hpp"
 #endif
+#ifdef TARGET_ARCH_aarch64
+# include "vm_version_aarch64.hpp"
+#endif
 #ifdef TARGET_ARCH_sparc
 # include "vm_version_sparc.hpp"
 #endif
@@ -1206,6 +1209,7 @@ void SignatureHandlerLibrary::add(methodHandle method) {
         } else {
           // debugging suppport
           if (PrintSignatureHandlers) {
+            ttyLocker ttyl;
             tty->cr();
             tty->print_cr("argument handler #%d for: %s %s (fingerprint = " UINT64_FORMAT ", %d bytes generated)",
                           _handlers->length(),
@@ -1289,7 +1293,7 @@ IRT_ENTRY(void, InterpreterRuntime::prepare_native_call(JavaThread* thread, Meth
   // preparing the same method will be sure to see non-null entry & mirror.
 IRT_END
 
-#if defined(IA32) || defined(AMD64) || defined(ARM)
+#if defined(IA32) || defined(AMD64) || defined(ARM) || defined(AARCH64)
 IRT_LEAF(void, InterpreterRuntime::popframe_move_outgoing_args(JavaThread* thread, void* src_address, void* dest_address))
   if (src_address == dest_address) {
     return;
